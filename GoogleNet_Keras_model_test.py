@@ -15,7 +15,7 @@ from keras.applications.imagenet_utils import preprocess_input
 import keras.backend as K
 K.set_image_data_format('channels_last')
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import imshow
+
 from utils import *
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 #读取数据集
@@ -101,10 +101,11 @@ model = GoogLeNet(intensor = (224,224,3))
 model_path = './log/ep048-loss0.302-val_loss0.408.h5'
 model_path = os.path.expanduser(model_path)
 model.load_weights(model_path,by_name=True)
-img_path = './test/cat.1186.jpg'
+img_path = './test/dog.11811.jpg'
 img = image.load_img(img_path, target_size=(224, 224))
-imshow(img)
 x = image.img_to_array(img)
 x = np.expand_dims(x, axis=0)
 x = preprocess_input(x)
 print(model.predict(x))
+plt.imshow(img)
+plt.show()
