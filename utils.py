@@ -2,6 +2,7 @@ import h5py
 import numpy as np
 import os
 import tensorflow as tf
+import keras.backend as k
 from keras.layers import BatchNormalization
 from keras.layers import GlobalAveragePooling2D, GlobalMaxPooling2D, Reshape, \
     Dense, multiply, Permute, Concatenate, Conv2D, Add, Activation, Lambda,MaxPooling2D
@@ -20,9 +21,9 @@ def load_data(data_dir,dataname):
 
 def one_hot_matrix(labels, C):
     C = tf.constant(C,name = "C")
-    one_hot_matrix = tf.one_hot(labels,C,axis = -1)
+    one_hot_mat = tf.one_hot(labels,C,axis = -1)
     sess = tf.Session()
-    one_hot = sess.run(one_hot_matrix)
+    one_hot = sess.run(one_hot_mat)
     sess.close()
     return one_hot
 
@@ -138,17 +139,18 @@ def conv_add_CBAM_pool(input_tensor,shape,scope_name):
         pool = tf.nn.max_pool(Spatial,[1,2,2,1],[1,2,2,1],padding='VALID')
     return pool
 
-####写一个Inceptioon的函数
-def InceptionBlock(input_tensor,c1,c2,c3,c4):
-    x1 = Conv2D(filters=c1,kernel_size=(1,1))(input_tensor)
-    x2_1 = Conv2D(filters=c2[0],kernel_size=(1,1))(input_tensor)
-    x2_2 = Conv2D(filters=c2[1],kernel_size=(3,3),padding='same')(x2_1)
-    x3_1 = Conv2D(filters=c3[0],kernel_size=(1,1))(input_tensor)
-    x3_2 = Conv2D(filters=c3[1],kernel_size=(5,5),padding='same')(x3_1)
-    x4_1 = MaxPooling2D(pool_size=(3,3),padding='same')(input_tensor)
-    x4_2 = Conv2D(filters=c4,kernel_size=(1,1))(x4_1)
-    
-    return  x4_2
+from functools import reduce
+def compose(*funcs):  #*funcs表示参数数量不确定，传入列表类参数
+    """Compose arbitrarily many functions, evaluated left to right.
+
+    Reference: https://mathieularose.com/function-composition-in-python/
+    """
+    # return lambda x: reduce(lambda v, f: f(v), funcs, x)
+    if funcs:
+        return reduce(lambda f, g: lambda *a, **kw: g(f(*a, **kw)), funcs)  #不确定参数名，表示关键字参数，可以字典形式传入多个参数
+                #reduce简化                                  #g(f(*a, **kw))表示f函数运行返回值传给g函数继续运行，参数为funcs中每个函数分别的参数
+    else:
+        raise ValueError('Composition of empty sequence not supported.')
 
 
 

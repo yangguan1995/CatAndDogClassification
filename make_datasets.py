@@ -41,25 +41,25 @@ print('训练集共有{}张图片'.format(len(image_list)))
 
 lentrain = int(np.floor(0.8*len(image_list)))
 lentest = int(len(image_list)-lentrain)
-Train_image =  np.random.rand(lentrain, 224, 224, 3).astype('float32')  #由256->224
+Train_image =  np.random.rand(lentrain, 256, 256, 3).astype('float32')  #由256->224
 Train_label = np.random.rand(lentrain, 1).astype('float32')
-Test_image =  np.random.rand(lentest, 224, 224, 3).astype('float32')
+Test_image =  np.random.rand(lentest, 256, 256, 3).astype('float32')
 Test_label = np.random.rand(lentest, 1).astype('float32')
 # #把训练集图片读入并保存为数组用于训练
 for i in range(lentrain):
     im = Image.open(image_list[i])
-    im = im.resize((224, 224),Image.BICUBIC)
+    im = im.resize((256, 256),Image.BICUBIC)
     Train_image[i] = im;
     Train_label[i] = np.array(label_list[i])
     
         
 for i in range(lentrain, len(image_list)):
     im = Image.open(image_list[i])
-    im = im.resize((224, 224),Image.BICUBIC)
+    im = im.resize((256, 256),Image.BICUBIC)
     Test_image[i-lentrain] = im
     Test_label[i-lentrain] = np.array(label_list[i])
 # Create a new file
-f = h5py.File(os.path.join(train_dir,'GoogLeNetData_224.h5'), 'w')
+f = h5py.File(os.path.join(train_dir,'data.h5'), 'w')
 f.create_dataset('X_train', data=Train_image)
 f.create_dataset('y_train', data=Train_label)
 f.create_dataset('X_test', data=Test_image)

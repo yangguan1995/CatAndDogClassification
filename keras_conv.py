@@ -21,6 +21,8 @@ from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, Ear
 data_dir = './train1/'
 data_name = 'data.h5'
 X_train, Y_train, X_test, Y_test = load_data(data_dir,data_name)
+Y_train = np.squeeze(one_hot_matrix(Y_train,2))
+Y_test = np.squeeze(one_hot_matrix(Y_test,2))
 # Normalize image vectors.
 # Reshape
 def Cat_Dog_Model(input_shape):
@@ -54,12 +56,11 @@ def Cat_Dog_Model(input_shape):
     X = Dense(64)(X)
     X = BatchNormalization()(X)
     X = Activation('relu')(X)
-    Y = Dense(1,activation='sigmoid')(X)
-    
+    Y = Dense(2,activation='sigmoid')(X)  #数据标签没使用OneHot所以分类就只有零和一，二分类
 
     model = Model(inputs=X_input, outputs=Y, name='Cat_Dog_Model')
     return model
-log_dir = './check'
+log_dir = './log'
 Cat_Dog = Cat_Dog_Model(input_shape=(256,256,3))
 Cat_Dog.compile(optimizer=keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0), loss='binary_crossentropy', metrics=['accuracy'])
 logging = TensorBoard(log_dir=log_dir)
@@ -67,12 +68,13 @@ checkpoint = ModelCheckpoint(log_dir + "ep{epoch:03d}-loss{loss:.3f}-val_loss{va
                              monitor='val_loss', save_weights_only=True, save_best_only=True, period=1)
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=10,min_lr=1e-10, verbose=1)
 #对于简单的数据集，fit函数够用
-Cat_Dog.fit(x=X_train, y=Y_train, batch_size=10, epochs=20,callbacks=[logging,checkpoint,reduce_lr])
+Cat_Dog.fit(x=X_train, y=Y_train, batch_size=32, epochs=10,validation_split=0.1,callbacks=[logging,checkpoint,reduce_lr])
+Cat_Dog.save('Simple.model')
 preds = Cat_Dog.evaluate(x=X_test, y=Y_test)
 print ("Loss = " + str(preds[0]))
 print ("Test Accuracy = " + str(preds[1]))
 ##测试自己的图片
-img_path = './test/dog.3435.jpg'
+img_path = './test/cat.120.jpg'
 img = image.load_img(img_path, target_size=(256, 256))
 imshow(img)
 x = image.img_to_array(img)
