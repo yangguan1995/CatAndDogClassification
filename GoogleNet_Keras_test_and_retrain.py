@@ -1,5 +1,7 @@
 #使用TF加keras搭建一个简单的卷积神经网络
-import  tensorflow as tf
+
+import os
+import tensorflow as tf
 import numpy as np
 import keras
 from keras import layers
@@ -13,7 +15,7 @@ from keras.applications.imagenet_utils import preprocess_input
 import keras.backend as K
 K.set_image_data_format('channels_last')
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import imshow
+
 from utils import *
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 #读取数据集
@@ -95,28 +97,34 @@ def GoogLeNet(intensor):
     model = Model(inputs = X_input,outputs = Yout)
     return model
 
-Cat_Dog= GoogLeNet(intensor=(224,224,3))
-# Cat_Dog = Model(inputs=X_input, outputs=Y, name='Cat_Dog_GoogLeNet')
-Cat_Dog.compile(optimizer=keras.optimizers.Adam(lr=0.1, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0),
-                loss='binary_crossentropy', metrics=['accuracy'])
-# Cat_Dog.summary()
+model = GoogLeNet(intensor = (224,224,3))
+model_path = './log/ep048-loss0.302-val_loss0.408.h5'
+model_path = os.path.expanduser(model_path)
+model.load_weights(model_path,by_name=True) #加载预训练权重
+img_path = './test/dog.11811.jpg'
+img = image.load_img(img_path, target_size=(224, 224))
+x = image.img_to_array(img)
+x = np.expand_dims(x, axis=0)
+x = preprocess_input(x)
+print(model.predict(x))
+plt.imshow(img)
+plt.show()
+#在原来模型基础上继续训练
+data_dir = './train1/'
+data_name = 'GoogLeNetData_224.h5'
+X_train, Y_train, X_test, Y_test = load_data(data_dir,data_name)
+#当数据为多分类>2时，使用onehot编码，不能使用binary_crossentropy
+Y_train = np.squeeze(one_hot_matrix(Y_train,2))
+Y_test = np.squeeze(one_hot_matrix(Y_test,2))
 
+model.compile(optimizer=keras.optimizers.Adam(lr=0.1, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0),
+                loss='binary_crossentropy', metrics=['accuracy'])
 log_dir = './log/'
 logging = TensorBoard(log_dir=log_dir)
 checkpoint = ModelCheckpoint(log_dir +"ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5",
                              monitor='val_loss', save_weights_only=True, save_best_only=True, period=1)
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=10, min_lr=1e-5, verbose=1)
 # 对于简单的数据集，fit函数够用
-Cat_Dog.fit(x=X_train, y=Y_train, batch_size=16, epochs=100, validation_split=0.2,callbacks=[logging, checkpoint, reduce_lr])
-Cat_Dog.save('cat_dog.h5')
-preds = Cat_Dog.evaluate(x=X_test, y=Y_test)
-print("Loss = " + str(preds[0]))
-print("Test Accuracy = " + str(preds[1]))
-##测试自己的图片
-img_path = './test/cat.1186.jpg'
-img = image.load_img(img_path, target_size=(224, 224))
-imshow(img)
-x = image.img_to_array(img)
-x = np.expand_dims(x, axis=0)
-x = preprocess_input(x)
-print(Cat_Dog.predict(x))
+model.fit(x=X_train, y=Y_train, batch_size=32, epochs=50, validation_split=0.2,callbacks=[logging, checkpoint, reduce_lr])
+model.save('cat_dog.h5')
+

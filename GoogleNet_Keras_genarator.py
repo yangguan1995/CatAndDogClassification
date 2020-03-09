@@ -1,7 +1,5 @@
 #使用TF加keras搭建一个简单的卷积神经网络
-
-import os
-import tensorflow as tf
+import  tensorflow as tf
 import numpy as np
 import keras
 from keras import layers
@@ -15,17 +13,11 @@ from keras.applications.imagenet_utils import preprocess_input
 import keras.backend as K
 K.set_image_data_format('channels_last')
 import matplotlib.pyplot as plt
-
+from matplotlib.pyplot import imshow
 from utils import *
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
-#读取数据集
 
-data_dir = './train1/'
-data_name = 'GoogLeNetData_224.h5'
-X_train, Y_train, X_test, Y_test = load_data(data_dir,data_name)
-#当数据为多分类>2时，使用onehot编码，不能使用binary_crossentropy
-Y_train = np.squeeze(one_hot_matrix(Y_train,2))
-Y_test = np.squeeze(one_hot_matrix(Y_test,2))
+
 def concat(x):
     return k.concatenate(x,axis=3)
 def InceptionBlock_Google(input_tensor,c1,c2,c3,c4):
@@ -96,16 +88,54 @@ def GoogLeNet(intensor):
     Yout = Dense(2, activation='sigmoid')(X6_5)
     model = Model(inputs = X_input,outputs = Yout)
     return model
+#构建数据生成器
+Data_Hence = image.ImageDataGenerator(rotation_range=20, zoom_range=0.15,
+	width_shift_range=0.2, height_shift_range=0.2, shear_range=0.15,
+	horizontal_flip=True, fill_mode="nearest")
+###导入训练数据
+data_dir = './train1/'
+data_name = 'GoogLeNetData_224.h5'
+log_dir = './log/'
+X_train, Y_train, X_test, Y_test = load_data(data_dir,data_name)
+Y_train = np.squeeze(one_hot_matrix(Y_train,2))
+Y_test = np.squeeze(one_hot_matrix(Y_test,2))
+def train(Cat_Dog):
+    Batch_size = 16
+    val_split = 0.1
+    num_val = int(len(X_train[:])*val_split)
+    num_train = len(X_train[:]) - num_val
+    Cat_Dog.compile(optimizer='Adam',#使用adam默认的参数训练，等于keras.optimizer.adam(lr=0.001)
+                    loss='binary_crossentropy',
+                    metrics=['accuracy'])
+    # Cat_Dog.compile(optimizer=keras.optimizers.Adam(lr=0.1, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0),
+    #                 loss='binary_crossentropy', metrics=['accuracy'])
+    # Cat_Dog.summary()
+    #开始训练，保存参数
 
-model = GoogLeNet(intensor = (224,224,3))
-model_path = './log/ep048-loss0.302-val_loss0.408.h5'
-model_path = os.path.expanduser(model_path)
-model.load_weights(model_path,by_name=True)
-img_path = './test/dog.11811.jpg'
-img = image.load_img(img_path, target_size=(224, 224))
-x = image.img_to_array(img)
-x = np.expand_dims(x, axis=0)
-x = preprocess_input(x)
-print(model.predict(x))
-plt.imshow(img)
-plt.show()
+    logging = TensorBoard(log_dir=log_dir)
+    checkpoint = ModelCheckpoint(log_dir +"ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5",
+                                 monitor='val_loss', save_weights_only=True, save_best_only=True, period=1)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=10, min_lr=1e-5, verbose=1)
+
+    Cat_Dog.fit_generator(Data_Hence.flow(X_train[:num_train],Y_train[:num_train],Batch_size),
+                          steps_per_epoch=max(1, num_train//Batch_size),
+                          validation_data=(X_train[num_train:],Y_train[num_train:]),
+                          validation_steps = max(1, num_val // Batch_size),
+                          epochs=100,
+                          callbacks=[logging, checkpoint, reduce_lr])
+    Cat_Dog.save('cat_dog.h5') #保存整个模型 结构和参数
+
+if __name__ == '__main__':
+    Cat_Dog = GoogLeNet(intensor=(224, 224, 3))
+    train(Cat_Dog)
+    preds = Cat_Dog.evaluate(x=X_test, y=Y_test)
+    print("Loss = " + str(preds[0]))
+    print("Test Accuracy = " + str(preds[1]))
+    #测试自己的图片
+    img_path = './test/cat.1186.jpg'
+    img = image.load_img(img_path, target_size=(224, 224))
+    imshow(img)
+    x = image.img_to_array(img)
+    x = np.expand_dims(x, axis=0)
+    x = preprocess_input(x)
+    print(Cat_Dog.predict(x))

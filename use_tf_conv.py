@@ -108,7 +108,7 @@ def train(cat_dog):
     x = tf.placeholder(tf.float32,shape=(None,256,256,3),name='x-input')
     y_ = tf.placeholder(tf.float32,shape = (None,2),name='y_input')
    # regularizer = tf.contrib.layers.l2_regularizer(REGULARIZATION_RATE)
-    y = cat_dog_CBAMmodel(x)
+    y = cat_dog_model(x)
     global_step = tf.Variable(0,trainable = False)
     variable_averages = tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY,global_step)
     variabel_averages_op = variable_averages.apply(tf.trainable_variables())

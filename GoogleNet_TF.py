@@ -16,15 +16,9 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import imshow
 from utils import *
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
-#读取数据集
-
-data_dir = './train1/'
-data_name = 'GoogLeNetData_224.h5'
-X_train, Y_train, X_test, Y_test = load_data(data_dir,data_name)
-#当数据为多分类>2时，使用onehot编码，不能使用binary_crossentropy
-Y_train = np.squeeze(one_hot_matrix(Y_train,2))
-Y_test = np.squeeze(one_hot_matrix(Y_test,2))
 ####写一个Inceptioon的函数,在使用keras.Model类时，要将其改用Lambda层使用
+
+tf.reset_default_graph()
 def InceptionBlock_Google(input_tensor,c1,c2,c3,c4):
     x1 = Conv2D(filters=c1,kernel_size=(1,1))(input_tensor)
     x1 = BatchNormalization(axis=3)(x1)
@@ -51,9 +45,7 @@ def InceptionBlock_Google(input_tensor,c1,c2,c3,c4):
     return  k.concatenate([x1,x2_2,x3_2,x4_2],axis=3)
 
 def GoogLeNet(X_input):
-    # Feel free to use the suggested outline in the text above to get started, and run through the whole
-    # exercise (including the later portions of this notebook) once. The come back also try out other
-    # network architectures as well.
+
     # X_input = Input(input_shape)  # placeholder
     #Block1
     X = Conv2D(filters=64, kernel_size=(7,7), strides=(2,2), padding='same')(X_input)
@@ -85,21 +77,19 @@ def GoogLeNet(X_input):
     X = AveragePooling2D(pool_size=(7,7),strides=(1,1))(X)
     # FC
     X = Flatten()(X)
-    X = Dense(64)(X)
-    X = BatchNormalization()(X)
-    X = Activation('relu')(X)
-    X = Dropout(0.4)(X)
-    Y = Dense(2, activation='sigmoid')(X)
-
-
+    # X = Dense(64)(X)
+    # X = BatchNormalization()(X)
+    # X = Activation('relu')(X)
+    # X = Dropout(0.4)(X)
+    X = Dense(2)(X)
+    Y = BatchNormalization(axis=1)(X)
     return Y
 
 
-BATCH_SIZE = 32
+BATCH_SIZE = 8
 LEARNING_RATE_BASE = 0.001
 LEARNING_RATE_DECAY = 0.9
-REGULARIZATION_RATE = 0.0001
-MAX_EPOCH = 10 #训练轮数
+MAX_EPOCH = 50 #训练轮数
 MOVING_AVERAGE_DECAY = 0.99 #滑动平均衰减率
 MODEL_SAVE_PATH = "./tf_results"
 MODEL_NAME = "model.ckpt"
@@ -115,7 +105,9 @@ def train(cat_dog):
     variable_averages = tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY,global_step)
     variabel_averages_op = variable_averages.apply(tf.trainable_variables())
     #loss
-    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=y,labels=tf.argmax(y_,1))
+    # cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=y, labels=y_) #独立不互斥分类，一图多目标
+    #cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=y,labels=y_)#独立互斥分类，一图一目标，都要onehot
+    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=y,labels=tf.argmax(y_,1))#独立互斥分类，一图一目标，不要onehot
     cross_entropy_mean = tf.reduce_mean(cross_entropy)
     loss = cross_entropy_mean
     #设置指数衰减学习率
@@ -134,7 +126,7 @@ def train(cat_dog):
                 xs,ys = cat_dog["X_train"][(k)*BATCH_SIZE:(k + 1)*BATCH_SIZE] ,cat_dog["Y_train"][(k)*BATCH_SIZE:(k + 1)*BATCH_SIZE]
                 xs = np.reshape(xs,[BATCH_SIZE,224,224,3])
                 _,_,loss_value,step = sess.run([train_step,variabel_averages_op,loss,global_step],feed_dict={x:xs,y_:ys})
-                if k %10 ==0:
+                if k %100 ==0:
                     print("Epoch {} || {} iterations ||loss on training batch is {}.".format(i+1,step%Num_iters,loss_value))
                 #保存当前模型，文件名加上当前训练轮数
             saver.save(sess,os.path.join(MODEL_SAVE_PATH,MODEL_NAME),global_step = global_step)
