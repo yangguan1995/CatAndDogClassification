@@ -83,7 +83,7 @@ def SEblock(input,scale):
         mask = tf.reshape(logit,[-1,1,1,channel])
     return input*mask
 
-def CBAM_Channel(input,scale):
+def CBAM_Channel(input,scale=16):
     shape = input.get_shape().as_list()
     poolsize = [1,shape[1],shape[2],1]
     ##avgpooling channel

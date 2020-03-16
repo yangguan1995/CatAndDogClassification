@@ -88,18 +88,24 @@ def GoogLeNet(intensor):
     Yout = Dense(2, activation='sigmoid')(X6_5)
     model = Model(inputs = X_input,outputs = Yout)
     return model
-#构建数据生成器
-Data_Hence = image.ImageDataGenerator(rotation_range=20, zoom_range=0.15,
-	width_shift_range=0.2, height_shift_range=0.2, shear_range=0.15,
-	horizontal_flip=True, fill_mode="nearest")
-###导入训练数据
-data_dir = './train1/'
-data_name = 'GoogLeNetData_224.h5'
-log_dir = './log/'
-X_train, Y_train, X_test, Y_test = load_data(data_dir,data_name)
-Y_train = np.squeeze(one_hot_matrix(Y_train,2))
-Y_test = np.squeeze(one_hot_matrix(Y_test,2))
-def train(Cat_Dog):
+
+#使用yield制作数据集生成器
+def data_generator(X_train,Y_train,Batch_size):
+    n= len(X_train)
+    i = 0
+    while True:
+        image_data = []
+        label  = []
+        for b in range(Batch_size):
+            i%=n  #无限迭代的时候控制索引 不超过总样本
+            image_data.append(X_train[i])
+            label.append(Y_train[i])
+            i += 1
+        image_data = np.array(image_data)
+        label = np.array(label)
+        yield (image_data,label) #feed数据，每次batchsize个训练数据，无限循环，调用一次
+
+def train(Cat_Dog,X_train,Y_train):
     Batch_size = 16
     val_split = 0.1
     num_val = int(len(X_train[:])*val_split)
@@ -116,18 +122,34 @@ def train(Cat_Dog):
     checkpoint = ModelCheckpoint(log_dir +"ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5",
                                  monitor='val_loss', save_weights_only=True, save_best_only=True, period=1)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=10, min_lr=1e-5, verbose=1)
-
-    Cat_Dog.fit_generator(Data_Hence.flow(X_train[:num_train],Y_train[:num_train],Batch_size),
+    # 构建数据增强生成器
+    # Data_Hence = image.ImageDataGenerator(rotation_range=20, zoom_range=0.15,
+    # 	width_shift_range=0.2, height_shift_range=0.2, shear_range=0.15,
+    # 	horizontal_flip=True, fill_mode="nearest")
+    # Cat_Dog.fit_generator(Data_Hence.flow(X_train[:num_train],Y_train[:num_train],Batch_size),#.flow生成器方法
+    #                       steps_per_epoch=max(1, num_train//Batch_size),
+    #                       validation_data=(X_train[num_train:],Y_train[num_train:]),
+    #                       validation_steps = max(1, num_val // Batch_size),
+    #                       epochs=100,
+    #                       callbacks=[logging, checkpoint, reduce_lr])
+    Cat_Dog.fit_generator(data_generator(X_train[:num_train],Y_train[:num_train],Batch_size),#yield生成器方法
                           steps_per_epoch=max(1, num_train//Batch_size),
-                          validation_data=(X_train[num_train:],Y_train[num_train:]),
+                          validation_data=data_generator(X_train[num_train:],Y_train[num_train:],Batch_size),
                           validation_steps = max(1, num_val // Batch_size),
-                          epochs=100,
+                          epochs=10,
                           callbacks=[logging, checkpoint, reduce_lr])
     Cat_Dog.save('cat_dog.h5') #保存整个模型 结构和参数
 
 if __name__ == '__main__':
+    ###导入训练数据
+    data_dir = './train1/'
+    data_name = 'GoogLeNetData_224.h5'
+    log_dir = './log/'
+    X_train, Y_train, X_test, Y_test = load_data(data_dir, data_name)
+    Y_train = np.squeeze(one_hot_matrix(Y_train, 2))
+    Y_test = np.squeeze(one_hot_matrix(Y_test, 2))
     Cat_Dog = GoogLeNet(intensor=(224, 224, 3))
-    train(Cat_Dog)
+    train(Cat_Dog,X_train,Y_train)
     preds = Cat_Dog.evaluate(x=X_test, y=Y_test)
     print("Loss = " + str(preds[0]))
     print("Test Accuracy = " + str(preds[1]))
